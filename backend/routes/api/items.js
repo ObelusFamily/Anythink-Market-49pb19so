@@ -6,6 +6,28 @@ var User = mongoose.model("User");
 var auth = require("../auth");
 const { sendEvent } = require("../../lib/event");
 
+
+require('dotenv').config({path: './.env'});
+
+
+const { Configuration, OpenAIApi } = require("openai");
+const configuration = new Configuration({
+    organization: "org-vzrrozpdTmlpU64guMGjGohO",
+    apiKey: process.env.OPENAI_API_KEY,
+});
+const openai = new OpenAIApi(configuration);
+
+async function replaceImage(title) {
+  console.log('TITLE', title);
+  const response =  await openai.createImage({
+    prompt: 'cat',
+    n: 1,
+    size: "256x256",
+  });
+  console.log('RESPONSE', response.data.data[0].url);
+  return response.data.data[0].url;
+}
+
 // Preload item objects on routes with ':item'
 router.param("item", function(req, res, next, slug) {
   Item.findOne({ slug: slug })
@@ -148,8 +170,18 @@ router.post("/", auth.required, function(req, res, next) {
 
       item.seller = user;
 
+
+      // Get image for image
+     
+      if (req.body.item.image == '') {
+          (async () => {
+            req.body.item.image = await replaceImage(req.body.item.title)
+          })();
+      } //end of if
+
       return item.save().then(function() {
         sendEvent('item_created', { item: req.body.item })
+        console.log('EVENT ITEM CREATED SENT');
         return res.json({ item: item.toJSONFor(user) });
       });
     })
